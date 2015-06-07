@@ -69,8 +69,67 @@ trait WartTraverser {
       }
   }
 
-	def hasWartAnnotation(u: WartUniverse)(t: u.universe.Tree) =
-		Try(t.symbol.annotations.exists(isWartAnnotation(u))).getOrElse(false)
+  def hasWartAnnotation[U <: WartUniverse](u: U)(tree: U#Tree) = {
+    import u.universe._
+    tree match {
+      case t: ValOrDefDef => t.symbol.annotations.exists(isWartAnnotation(u))
+      case t: ImplDef => t.symbol.annotations.exists(isWartAnnotation(u))
+      case t => false
+    }
+  }
+}
+
+trait SimpleWartTraverser extends WartTraverser { wt =>
+
+  def skip[u <: WartUniverse]: Traversal[u] =
+    Traversal(_ => List.empty)
+
+  def continue(u: WartUniverse): Traversal[u.type] =
+    Traversal[u.type](tree => tree match {
+      case t if hasWartAnnotation[u.type](u)(t) => List.empty
+      case _ => wt.traverse[u.type](u)(tree)
+    })
+
+  def error(u: WartUniverse)(msg: String): Traversal[u.type] =
+    Traversal[u.type](tree => tree match {
+      case t if hasWartAnnotation[u.type](u)(t) => List.empty
+      case _ =>
+        u.error(tree.pos, msg)
+        wt.traverse[u.type](u)(tree)
+    })
+
+  def apply(u: WartUniverse): u.Traverser = {
+    import u.universe._
+
+    new u.Traverser {
+      val stack: collection.mutable.Stack[List[Traversal[u.type]]] =
+        collection.mutable.Stack(
+          List(Traversal[u.type](tree => wt.traverse[u.type](u)(tree))))
+
+      override def traverse(tree: Tree): Unit = {
+        tree match {
+          // Ignore trees marked by SuppressWarnings
+          // This isn't going to work with the new single traversal stuff.
+          // If I leave this here and add a section in the compose function.
+          // To handle annotations, this might work. This will still work
+          // on simple traversers and on composed ones will do nothing.
+          case t if hasWartAnnotation(u)(t) =>
+          case t =>
+            val next = stack.head.map(_.unwrap).flatMap(_(tree))
+            if (next.nonEmpty) {
+              stack.push(next)
+              try super.traverse(tree) finally stack.pop
+            }
+        }
+      }
+    }
+  }
+  def traverse[U <: WartUniverse](u: U)(tree: U#Tree): List[Traversal[U]]
+
+  def ncompose(o: SimpleWartTraverser): SimpleWartTraverser = new SimpleWartTraverser {
+    def traverse[U <: WartUniverse](u: U)(tree: U#Tree): List[Traversal[U]] =
+      wt.traverse[U](u)(tree) ++ o.traverse[U](u)(tree)
+  }
 }
 
 object WartTraverser {
@@ -78,8 +137,12 @@ object WartTraverser {
     l.reduceRight(_ compose _)(u)
 }
 
+final case class Traversal[u <: WartUniverse](
+  unwrap: u#Tree => List[Traversal[u]])
+
 trait WartUniverse {
   val universe: Universe
+  type Tree = universe.Tree
   type Traverser = universe.Traverser
   type TypeTag[T] = universe.TypeTag[T]
   def error(pos: universe.Position, message: String): Unit
