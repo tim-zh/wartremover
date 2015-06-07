@@ -69,7 +69,7 @@ trait WartTraverser {
       }
   }
 
-  def hasWartAnnotation[U <: WartUniverse](u: U)(tree: U#Tree) = {
+  def hasWartAnnotation(u: WartUniverse)(tree: u.Tree) = {
     import u.universe._
     tree match {
       case t: ValOrDefDef => t.symbol.annotations.exists(isWartAnnotation(u))
@@ -81,30 +81,58 @@ trait WartTraverser {
 
 trait SimpleWartTraverser extends WartTraverser { wt =>
 
-  def skip[u <: WartUniverse]: Traversal[u] =
-    Traversal(_ => List.empty)
-
-  def continue(u: WartUniverse): Traversal[u.type] =
-    Traversal[u.type](tree => tree match {
-      case t if hasWartAnnotation[u.type](u)(t) => List.empty
-      case _ => wt.traverse[u.type](u)(tree)
+  def skip(u: WartUniverse): List[Traversal { type Universe = u.type }] =
+    List(new Traversal {
+      type Universe = u.type
+      val universe: u.type = u
+      def run(tree: u.Tree) = List.empty
     })
 
-  def error(u: WartUniverse)(msg: String): Traversal[u.type] =
-    Traversal[u.type](tree => tree match {
-      case t if hasWartAnnotation[u.type](u)(t) => List.empty
-      case _ =>
-        u.error(tree.pos, msg)
-        wt.traverse[u.type](u)(tree)
+  def continue(u: WartUniverse): List[Traversal { type Universe = u.type }] =
+    List(new Traversal {
+      type Universe = u.type
+      val universe: u.type = u
+      def run(tree: u.Tree) = tree match {
+        case t if hasWartAnnotation(u)(t) => List.empty
+        case _ => traverse(u)(tree)
+      }
+    })
+
+  def error(u: WartUniverse)(msg: String): List[Traversal { type Universe = u.type }] =
+    List(new Traversal {
+      type Universe = u.type
+      val universe: u.type = u
+      def run(tree: u.Tree) = tree match {
+        case t if hasWartAnnotation(u)(t) => List.empty
+        case _ =>
+          u.error(tree.pos, msg)
+          traverse(u)(tree)
+      }
+    })
+
+  def warning(u: WartUniverse)(msg: String): List[Traversal { type Universe = u.type }] =
+    List(new Traversal {
+      type Universe = u.type
+      val universe: u.type = u
+      def run(tree: u.Tree) = tree match {
+        case t if hasWartAnnotation(u)(t) => List.empty
+        case _ =>
+          u.warning(tree.pos, msg)
+          traverse(u)(tree)
+      }
     })
 
   def apply(u: WartUniverse): u.Traverser = {
     import u.universe._
 
     new u.Traverser {
-      val stack: collection.mutable.Stack[List[Traversal[u.type]]] =
+      val stack: collection.mutable.Stack[List[Traversal { type Universe = u.type }]] =
         collection.mutable.Stack(
-          List(Traversal[u.type](tree => wt.traverse[u.type](u)(tree))))
+          List(new Traversal {
+            type Universe = u.type
+            val universe: u.type = u
+            def run(tree: u.Tree) = wt.traverse(u)(tree)
+          }))
 
       override def traverse(tree: Tree): Unit = {
         tree match {
@@ -115,7 +143,7 @@ trait SimpleWartTraverser extends WartTraverser { wt =>
           // on simple traversers and on composed ones will do nothing.
           case t if hasWartAnnotation(u)(t) =>
           case t =>
-            val next = stack.head.map(_.unwrap).flatMap(_(tree))
+            val next = stack.head.flatMap(_.run(tree))
             if (next.nonEmpty) {
               stack.push(next)
               try super.traverse(tree) finally stack.pop
@@ -124,11 +152,11 @@ trait SimpleWartTraverser extends WartTraverser { wt =>
       }
     }
   }
-  def traverse[U <: WartUniverse](u: U)(tree: U#Tree): List[Traversal[U]]
+  def traverse(u: WartUniverse)(tree: u.Tree): List[Traversal { type Universe = u.type }]
 
   def ncompose(o: SimpleWartTraverser): SimpleWartTraverser = new SimpleWartTraverser {
-    def traverse[U <: WartUniverse](u: U)(tree: U#Tree): List[Traversal[U]] =
-      wt.traverse[U](u)(tree) ++ o.traverse[U](u)(tree)
+    def traverse(u: WartUniverse)(tree: u.Tree): List[Traversal { type Universe = u.type }] =
+      wt.traverse(u)(tree) ++ o.traverse(u)(tree)
   }
 }
 
@@ -137,8 +165,11 @@ object WartTraverser {
     l.reduceRight(_ compose _)(u)
 }
 
-final case class Traversal[u <: WartUniverse](
-  unwrap: u#Tree => List[Traversal[u]])
+abstract class Traversal { self =>
+  type Universe <: WartUniverse
+  val universe: Universe
+  def run(tree: universe.Tree): List[Traversal { type Universe = self.Universe }]
+}
 
 trait WartUniverse {
   val universe: Universe
