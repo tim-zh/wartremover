@@ -1,23 +1,16 @@
 package org.brianmckenna.wartremover
 package warts
 
-object MutableDataStructures extends WartTraverser {
-  def apply(u: WartUniverse): u.Traverser = {
+object MutableDataStructures extends SimpleWartTraverser {
+  def traverse(u: WartUniverse)(tree: u.Tree): List[Traversal { type Universe = u.type }] = {
     import u.universe._
 
     val mutablePackage = rootMirror.staticPackage("scala.collection.mutable")
 
-    new u.Traverser {
-      override def traverse(tree: Tree): Unit = {
-        tree match {
-          // Ignore trees marked by SuppressWarnings
-          case t if hasWartAnnotation(u)(t) =>
-          case Select(tpt, _) if tpt.tpe.contains(mutablePackage) && tpt.tpe.termSymbol.isPackage =>
-            u.error(tree.pos, "scala.collection.mutable package is disabled")
-            super.traverse(tree)
-          case _ => super.traverse(tree)
-        }
-      }
+    tree match {
+      case Select(tpt, _) if tpt.tpe.contains(mutablePackage) && tpt.tpe.termSymbol.isPackage =>
+        err(u)(tree.pos, "scala.collection.mutable package is disabled")
+      case _ => continue(u)
     }
   }
 }

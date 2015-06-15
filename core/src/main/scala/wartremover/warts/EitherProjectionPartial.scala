@@ -1,27 +1,20 @@
 package org.brianmckenna.wartremover
 package warts
 
-object EitherProjectionPartial extends WartTraverser {
-  def apply(u: WartUniverse): u.Traverser = {
+object EitherProjectionPartial extends SimpleWartTraverser {
+  def traverse(u: WartUniverse)(tree: u.Tree): List[Traversal { type Universe = u.type }] = {
     import u.universe._
 
     val leftProjectionSymbol = rootMirror.staticClass("scala.util.Either.LeftProjection")
     val rightProjectionSymbol = rootMirror.staticClass("scala.util.Either.RightProjection")
     val GetName: TermName = "get"
-    new u.Traverser {
-      override def traverse(tree: Tree): Unit = {
-        tree match {
-          // Ignore trees marked by SuppressWarnings
-          case t if hasWartAnnotation(u)(t) =>
-          case Select(left, GetName) if left.tpe.baseType(leftProjectionSymbol) != NoType =>
-            u.error(tree.pos, "LeftProjection#get is disabled - use LeftProjection#toOption instead")
-            super.traverse(tree)
-          case Select(left, GetName) if left.tpe.baseType(rightProjectionSymbol) != NoType =>
-            u.error(tree.pos, "RightProjection#get is disabled - use RightProjection#toOption instead")
-            super.traverse(tree)
-          case _ => super.traverse(tree)
-        }
-      }
+
+    tree match {
+      case Select(left, GetName) if left.tpe.baseType(leftProjectionSymbol) != NoType =>
+        err(u)(tree.pos, "LeftProjection#get is disabled - use LeftProjection#toOption instead")
+      case Select(left, GetName) if left.tpe.baseType(rightProjectionSymbol) != NoType =>
+        err(u)(tree.pos, "RightProjection#get is disabled - use RightProjection#toOption instead")
+      case _ => continue(u)
     }
   }
 }

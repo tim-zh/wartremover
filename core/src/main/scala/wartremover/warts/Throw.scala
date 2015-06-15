@@ -1,23 +1,16 @@
 package org.brianmckenna.wartremover
 package warts
 
-object Throw extends WartTraverser {
-  def apply(u: WartUniverse): u.Traverser = {
+object Throw extends SimpleWartTraverser {
+  def traverse(u: WartUniverse)(tree: u.Tree): List[Traversal { type Universe = u.type }] = {
     import u.universe._
     val ProductElementName: TermName = "productElement"
-    new u.Traverser {
-      override def traverse(tree: Tree) {
-        tree match {
-          // Ignore trees marked by SuppressWarnings
-          case t if hasWartAnnotation(u)(t) =>
-          case dd@DefDef(_, ProductElementName , _, _, _, _) if isSynthetic(u)(dd) =>
-          case u.universe.Throw(_) =>
-            u.error(tree.pos, "throw is disabled")
-            super.traverse(tree)
-          case _ =>
-            super.traverse(tree)
-        }
-      }
+
+    tree match {
+      case dd@DefDef(_, ProductElementName , _, _, _, _) if isSynthetic(u)(dd) => skip(u)
+      case u.universe.Throw(_) =>
+        err(u)(tree.pos, "throw is disabled")
+      case _ => continue(u)
     }
   }
 }

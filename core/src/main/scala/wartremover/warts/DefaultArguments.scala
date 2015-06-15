@@ -1,25 +1,18 @@
 package org.brianmckenna.wartremover
 package warts
 
-object DefaultArguments extends WartTraverser {
-  def apply(u: WartUniverse): u.Traverser = {
+object DefaultArguments extends SimpleWartTraverser {
+  def traverse(u: WartUniverse)(tree: u.Tree): List[Traversal { type Universe = u.type }] = {
     import u.universe._
     import u.universe.Flag._
 
     def containsDef(v : List[ValDef]) =
       v.find(_.mods.hasFlag(DEFAULTPARAM)).isDefined
 
-    new u.Traverser {
-      override def traverse(tree: Tree): Unit = {
-        tree match {
-          // Ignore trees marked by SuppressWarnings
-          case t if hasWartAnnotation(u)(t) =>
-          case d@DefDef(_, _, _, vs, _, _) if !isSynthetic(u)(d) && vs.find(containsDef).isDefined =>
-            u.error(tree.pos, "Function has default arguments")
-          case _ =>
-            super.traverse(tree)
-        }
-      }
+    tree match {
+      case d@DefDef(_, _, _, vs, _, _) if !isSynthetic(u)(d) && vs.find(containsDef).isDefined =>
+        err(u)(tree.pos, "Function has default arguments")
+      case _ => continue(u)
     }
   }
 }

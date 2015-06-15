@@ -69,14 +69,8 @@ trait WartTraverser {
       }
   }
 
-  def hasWartAnnotation(u: WartUniverse)(tree: u.Tree) = {
-    import u.universe._
-    tree match {
-      case t: ValOrDefDef => t.symbol.annotations.exists(isWartAnnotation(u))
-      case t: ImplDef => t.symbol.annotations.exists(isWartAnnotation(u))
-      case t => false
-    }
-  }
+	def hasWartAnnotation(u: WartUniverse)(t: u.universe.Tree) =
+		Try(t.symbol.annotations.exists(isWartAnnotation(u))).getOrElse(false)
 }
 
 trait SimpleWartTraverser extends WartTraverser { wt =>
@@ -98,29 +92,29 @@ trait SimpleWartTraverser extends WartTraverser { wt =>
       }
     })
 
-  def error(u: WartUniverse)(msg: String): List[Traversal { type Universe = u.type }] =
+  def err(u: WartUniverse)(pos: u.universe.Position, msg: String): List[Traversal { type Universe = u.type }] = {
+    u.error(pos, msg)
     List(new Traversal {
       type Universe = u.type
       val universe: u.type = u
       def run(tree: u.Tree) = tree match {
         case t if hasWartAnnotation(u)(t) => List.empty
-        case _ =>
-          u.error(tree.pos, msg)
-          traverse(u)(tree)
+        case _ =>traverse(u)(tree)
       }
     })
+  }
 
-  def warning(u: WartUniverse)(msg: String): List[Traversal { type Universe = u.type }] =
+  def warn(u: WartUniverse)(pos: u.universe.Position, msg: String): List[Traversal { type Universe = u.type }] = {
+    u.warning(pos, msg)
     List(new Traversal {
       type Universe = u.type
       val universe: u.type = u
       def run(tree: u.Tree) = tree match {
         case t if hasWartAnnotation(u)(t) => List.empty
-        case _ =>
-          u.warning(tree.pos, msg)
-          traverse(u)(tree)
+        case _ => traverse(u)(tree)
       }
     })
+  }
 
   def apply(u: WartUniverse): u.Traverser = {
     import u.universe._
@@ -146,7 +140,7 @@ trait SimpleWartTraverser extends WartTraverser { wt =>
             val next = stack.head.flatMap(_.run(tree))
             if (next.nonEmpty) {
               stack.push(next)
-              try super.traverse(tree) finally stack.pop
+              try super.traverse(tree) finally stack.pop()
             }
         }
       }

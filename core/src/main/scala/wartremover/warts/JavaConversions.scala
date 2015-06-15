@@ -1,24 +1,17 @@
 package org.brianmckenna.wartremover
 package warts
 
-object JavaConversions extends WartTraverser {
-  def apply(u: WartUniverse): u.Traverser = {
+object JavaConversions extends SimpleWartTraverser {
+  def traverse(u: WartUniverse)(tree: u.Tree): List[Traversal { type Universe = u.type }] = {
     import u.universe._
 
     val javaConversions = rootMirror.staticModule("scala.collection.JavaConversions")
 
-    new u.Traverser {
-      override def traverse(tree: Tree): Unit = {
-        tree match {
-          // Ignore trees marked by SuppressWarnings
-          case t if hasWartAnnotation(u)(t) =>
-          case Select(tpt, _) if tpt.tpe.contains(javaConversions) => {
-            u.error(tree.pos, "scala.collection.JavaConversions is disabled - use scala.collection.JavaConverters instead")
-            super.traverse(tree)
-          }
-          case _ => super.traverse(tree)
-        }
+    tree match {
+      case Select(tpt, _) if tpt.tpe.contains(javaConversions) => {
+        err(u)(tree.pos, "scala.collection.JavaConversions is disabled - use scala.collection.JavaConverters instead")
       }
+      case _ => continue(u)
     }
   }
 }

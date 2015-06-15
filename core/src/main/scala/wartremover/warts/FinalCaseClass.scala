@@ -1,24 +1,18 @@
 package org.brianmckenna.wartremover
 package warts
 
-object FinalCaseClass extends WartTraverser {
-  def apply(u: WartUniverse): u.Traverser = {
+object FinalCaseClass extends SimpleWartTraverser {
+  def traverse(u: WartUniverse)(tree: u.Tree): List[Traversal { type Universe = u.type }] = {
     import u.universe._
     import u.universe.Flag._
 
-    new u.Traverser {
-      override def traverse(tree: Tree): Unit = {
-        tree match {
-          // Ignore trees marked by SuppressWarnings
-          case t if hasWartAnnotation(u)(t) =>
-          case ClassDef(mods, _, _, _) if mods.hasFlag(CASE) && !mods.hasFlag(FINAL) =>
-            u.error(tree.pos, "case classes must be final")
-          // Do not look inside other classes.
-          // See: https://groups.google.com/forum/#!msg/scala-internals/vw8Kek4zlZ8/LAeakfeR3RoJ
-          case ClassDef(_, _, _, _) =>
-          case t => super.traverse(tree)
-        }
-      }
+    tree match {
+      case ClassDef(mods, _, _, _) if mods.hasFlag(CASE) && !mods.hasFlag(FINAL) =>
+        err(u)(tree.pos, "case classes must be final")
+      // Do not look inside other classes.
+      // See: https://groups.google.com/forum/#!msg/scala-internals/vw8Kek4zlZ8/LAeakfeR3RoJ
+      case ClassDef(_, _, _, _) => skip(u)
+      case t => continue(u)
     }
   }
 }

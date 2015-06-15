@@ -1,25 +1,18 @@
 package org.brianmckenna.wartremover
 package warts
 
-object OptionPartial extends WartTraverser {
-  def apply(u: WartUniverse): u.Traverser = {
+object OptionPartial extends SimpleWartTraverser {
+  def traverse(u: WartUniverse)(tree: u.Tree): List[Traversal { type Universe = u.type }] = {
     import u.universe._
 
     val optionSymbol = rootMirror.staticClass("scala.Option")
     val GetName: TermName = "get"
-    new u.Traverser {
-      override def traverse(tree: Tree): Unit = {
-        tree match {
-          // Ignore trees marked by SuppressWarnings
-          case t if hasWartAnnotation(u)(t) =>
-          case Select(left, GetName) if left.tpe.baseType(optionSymbol) != NoType =>
-            u.error(tree.pos, "Option#get is disabled - use Option#fold instead")
-          // TODO: This ignores a lot
-          case LabelDef(_, _, rhs) if isSynthetic(u)(tree)=>
-          case _ =>
-            super.traverse(tree)
-        }
-      }
+    tree match {
+      case Select(left, GetName) if left.tpe.baseType(optionSymbol) != NoType =>
+        err(u)(tree.pos, "Option#get is disabled - use Option#fold instead")
+      // TODO: This ignores a lot
+      case LabelDef(_, _, rhs) if isSynthetic(u)(tree)=> skip(u)
+      case _ => continue(u)
     }
   }
 }
