@@ -15,8 +15,8 @@ trait WartTraverser {
 
     object MacroUniverse extends WartUniverse {
       val universe: c.universe.type = c.universe
-      def error(pos: universe.Position, message: String) = c.error(pos, message)
-      def warning(pos: universe.Position, message: String) = c.warning(pos, message)
+      def error(tree: universe.Tree, message: String) = c.error(tree.pos, message)
+      def warning(tree: universe.Tree, message: String) = c.warning(tree.pos, message)
       val excludes: List[String] = List.empty // TODO: find a sensible way to initialize this field with useful data
     }
 
@@ -88,6 +88,6 @@ trait WartUniverse {
   val universe: Universe
   type Traverser = universe.Traverser
   type TypeTag[T] = universe.TypeTag[T]
-  def error(pos: universe.Position, message: String): Unit
-  def warning(pos: universe.Position, message: String): Unit
+  def error(tree: universe.Tree, message: String): Unit
+  def warning(tree: universe.Tree, message: String): Unit
 }

@@ -12,7 +12,7 @@ object FinalCaseClass extends WartTraverser {
           // Ignore trees marked by SuppressWarnings
           case t if hasWartAnnotation(u)(t) =>
           case ClassDef(mods, _, _, _) if mods.hasFlag(CASE) && !mods.hasFlag(FINAL) =>
-            u.error(tree.pos, "case classes must be final")
+            u.error(tree, "case classes must be final")
           // Do not look inside other classes.
           // See: https://groups.google.com/forum/#!msg/scala-internals/vw8Kek4zlZ8/LAeakfeR3RoJ
           case ClassDef(_, _, _, _) =>

@@ -33,7 +33,7 @@ object ToString extends WartTraverser {
           case t if hasWartAnnotation(u)(t) =>
 
           case Apply(Select(lhs, ToString), _) if notOverridden(lhs.tpe) =>
-            u.error(tree.pos, s"${lhs.tpe.baseClasses.head} does not override toString and automatic toString is disabled")
+            u.error(tree, s"${lhs.tpe.baseClasses.head} does not override toString and automatic toString is disabled")
 
           case _ => super.traverse(tree)
 

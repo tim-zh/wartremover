@@ -5,7 +5,7 @@ import tools.nsc.{Global, Phase}
 
 import java.net.{URL, URLClassLoader}
 
-class Plugin(val global: Global) extends tools.nsc.plugins.Plugin {
+class Plugin(val global: Global) extends tools.nsc.plugins.Plugin { thisPlugin =>
   import global._
 
   val name = "wartremover"
@@ -15,6 +15,7 @@ class Plugin(val global: Global) extends tools.nsc.plugins.Plugin {
   private[this] var traversers: List[WartTraverser] = List.empty
   private[this] var onlyWarnTraversers: List[WartTraverser] = List.empty
   private[this] var excludedFiles: List[String] = List.empty
+  private[this] var debug: Boolean = false
 
   def getTraverser(mirror: reflect.runtime.universe.Mirror)(name: String): WartTraverser = {
     val moduleSymbol = mirror.staticModule(name)
@@ -41,6 +42,7 @@ class Plugin(val global: Global) extends tools.nsc.plugins.Plugin {
       traverserNames.map(getTraverser(mirror))
     }
 
+	 debug = options.contains("debug")
     traversers = ts("traverser")
     onlyWarnTraversers = ts("only-warn-traverser")
     excludedFiles = filterOptions("excluded", options) flatMap (_ split ":") map (_.trim) map (new java.io.File(_).getAbsolutePath)
@@ -62,10 +64,16 @@ class Plugin(val global: Global) extends tools.nsc.plugins.Plugin {
         if (!isExcluded) {
           def wartUniverse(onlyWarn: Boolean) = new WartUniverse {
             val universe: global.type = global
-            def error(pos: Position, message: String) =
-              if (onlyWarn) global.reporter.warning(pos, message)
-              else global.reporter.error(pos, message)
-            def warning(pos: Position, message: String) = global.reporter.warning(pos, message)
+            def error(tree: Tree, message: String) = {
+              if (onlyWarn) global.reporter.warning(tree.pos, message)
+              else global.reporter.error(tree.pos, message)
+				  if (debug) {
+					 global.reporter.info(NoPosition, "Tree:\n" + show(tree), true)
+					 global.reporter.info(NoPosition, "Raw Tree:\n" + showRaw(tree), true)
+					 global.reporter.info(NoPosition, "Is Synthetic:\n" + tree.pos.lineContent, true)
+				  }
+				}
+            def warning(tree: Tree, message: String) = global.reporter.warning(tree.pos, message)
           }
 
           def go(ts: List[WartTraverser], onlyWarn: Boolean) =

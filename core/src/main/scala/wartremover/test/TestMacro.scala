@@ -18,8 +18,8 @@ object WartTestTraverser {
 
     object MacroTestUniverse extends WartUniverse {
       val universe: c.universe.type = c.universe
-      def error(pos: universe.Position, message: String) = errors += message
-      def warning(pos: universe.Position, message: String) = warnings += message
+      def error(tree: universe.Tree, message: String) = errors += message
+      def warning(tree: universe.Tree, message: String) = warnings += message
     }
 
     traverser(MacroTestUniverse).traverse(a.tree)

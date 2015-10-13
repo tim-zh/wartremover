@@ -10,9 +10,9 @@ object Throw extends WartTraverser {
         tree match {
           // Ignore trees marked by SuppressWarnings
           case t if hasWartAnnotation(u)(t) =>
-          case dd@DefDef(_, ProductElementName , _, _, _, _) if isSynthetic(u)(dd) =>
+          case tree if isSynthetic(u)(tree) =>
           case u.universe.Throw(_) =>
-            u.error(tree.pos, "throw is disabled")
+            u.error(tree, "throw is disabled")
             super.traverse(tree)
           case _ =>
             super.traverse(tree)

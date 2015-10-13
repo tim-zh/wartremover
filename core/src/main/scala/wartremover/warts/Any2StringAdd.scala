@@ -13,10 +13,10 @@ object Any2StringAdd extends WartTraverser {
           // Ignore trees marked by SuppressWarnings
           case t if hasWartAnnotation(u)(t) =>
           case Apply(Select(Select(_, PredefName), Any2StringAddName), _) =>
-            u.error(tree.pos, "Scala inserted an any2stringadd call")
+            u.error(tree, "Scala inserted an any2stringadd call")
             super.traverse(tree)
           case TypeApply(Select(Select(_, PredefName), Any2StringAddName), _) =>
-            u.error(tree.pos, "Scala inserted an any2stringadd call")
+            u.error(tree, "Scala inserted an any2stringadd call")
             super.traverse(tree)
           case _ => super.traverse(tree)
         }

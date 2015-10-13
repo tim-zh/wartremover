@@ -35,7 +35,7 @@ object AsInstanceOf extends WartTraverser {
 
           // Otherwise it's verboten for non-synthetic exprs
           case Select(e, AsInstanceOfName) if !isSynthetic(u)(e) =>
-            u.error(tree.pos, "asInstanceOf is disabled")
+            u.error(tree, "asInstanceOf is disabled")
 
           case _ => super.traverse(tree)
 

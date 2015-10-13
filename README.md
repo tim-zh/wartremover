@@ -374,7 +374,7 @@ object Unimplemented extends WartTraverser {
       override def traverse(tree: Tree) {
         tree match {
           case rt: RefTree if rt.symbol == notImplemented =>
-            u.error(tree.pos, "There was something left unimplemented")
+            u.error(tree, "There was something left unimplemented")
           case _ =>
         }
         super.traverse(tree)

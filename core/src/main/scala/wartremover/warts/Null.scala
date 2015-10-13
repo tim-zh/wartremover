@@ -38,7 +38,7 @@ object Null extends WartTraverser {
               traverse(stat)
             }
           case Literal(Constant(null)) =>
-            u.error(tree.pos, "null is disabled")
+            u.error(tree, "null is disabled")
             super.traverse(tree)
           // Scala pattern matching outputs synthetic null.asInstanceOf[X]
           case ValDef(mods, _, _, _) if mods.hasFlag(Flag.MUTABLE) && synthetic =>
